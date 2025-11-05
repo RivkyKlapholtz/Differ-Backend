@@ -58,8 +58,8 @@ namespace DiffSpectrumView.Repositories
             await connection.OpenAsync();
             
             var command = new SqlCommand(@"
-                INSERT INTO Jobs (Name, StartTime, EndTime, Status, TotalDiffs, FailedDiffs, SucceededDiffs)
-                VALUES (@Name, @StartTime, @EndTime, @Status, @TotalDiffs, @FailedDiffs, @SucceededDiffs);
+                INSERT INTO Jobs (Name, StartTime, EndTime, Status, TotalRequestsProcessed, DiffsFound, ErrorMessage)
+                VALUES (@Name, @StartTime, @EndTime, @Status, @TotalRequestsProcessed, @DiffsFound, @ErrorMessage);
                 SELECT CAST(SCOPE_IDENTITY() as int);", 
                 connection);
             
@@ -77,8 +77,8 @@ namespace DiffSpectrumView.Repositories
             var command = new SqlCommand(@"
                 UPDATE Jobs 
                 SET Name = @Name, StartTime = @StartTime, EndTime = @EndTime, 
-                    Status = @Status, TotalDiffs = @TotalDiffs, FailedDiffs = @FailedDiffs, 
-                    SucceededDiffs = @SucceededDiffs
+                    Status = @Status, TotalRequestsProcessed = @TotalRequestsProcessed, 
+                    DiffsFound = @DiffsFound, ErrorMessage = @ErrorMessage
                 WHERE Id = @Id", 
                 connection);
             
@@ -108,44 +108,20 @@ namespace DiffSpectrumView.Repositories
             return Convert.ToInt32(result);
         }
 
-        public async Task<int> GetFailedDiffsAsync()
-        {
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-            
-            var command = new SqlCommand(@"
-                SELECT COUNT(*) FROM Diffs 
-                WHERE IsDeleted = 0 AND Category IN ('JSON Response', 'Status Code', 'Headers')", 
-                connection);
-            var result = await command.ExecuteScalarAsync();
-            return Convert.ToInt32(result);
-        }
-
-        public async Task<int> GetSucceededDiffsAsync()
-        {
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-            
-            var command = new SqlCommand(@"
-                SELECT COUNT(*) FROM Diffs 
-                WHERE IsDeleted = 0 AND Category NOT IN ('JSON Response', 'Status Code', 'Headers')", 
-                connection);
-            var result = await command.ExecuteScalarAsync();
-            return Convert.ToInt32(result);
-        }
+        // Diffs are just differences found, not "failed" or "succeeded"
 
         private static Job MapToJob(SqlDataReader reader)
         {
             return new Job
             {
-                Id = reader.GetInt32("Id"),
-                Name = reader.GetString("Name"),
-                StartTime = reader.GetDateTime("StartTime"),
-                EndTime = reader.IsDBNull("EndTime") ? null : reader.GetDateTime("EndTime"),
-                Status = reader.GetString("Status"),
-                TotalDiffs = reader.GetInt32("TotalDiffs"),
-                FailedDiffs = reader.GetInt32("FailedDiffs"),
-                SucceededDiffs = reader.GetInt32("SucceededDiffs")
+                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                Name = reader.GetString(reader.GetOrdinal("Name")),
+                StartTime = reader.GetDateTime(reader.GetOrdinal("StartTime")),
+                EndTime = reader.IsDBNull(reader.GetOrdinal("EndTime")) ? null : reader.GetDateTime(reader.GetOrdinal("EndTime")),
+                Status = reader.GetString(reader.GetOrdinal("Status")),
+                TotalRequestsProcessed = reader.GetInt32(reader.GetOrdinal("TotalRequestsProcessed")),
+                DiffsFound = reader.GetInt32(reader.GetOrdinal("DiffsFound")),
+                ErrorMessage = reader.IsDBNull(reader.GetOrdinal("ErrorMessage")) ? null : reader.GetString(reader.GetOrdinal("ErrorMessage"))
             };
         }
 
@@ -155,9 +131,9 @@ namespace DiffSpectrumView.Repositories
             command.Parameters.AddWithValue("@StartTime", job.StartTime);
             command.Parameters.AddWithValue("@EndTime", (object?)job.EndTime ?? DBNull.Value);
             command.Parameters.AddWithValue("@Status", job.Status);
-            command.Parameters.AddWithValue("@TotalDiffs", job.TotalDiffs);
-            command.Parameters.AddWithValue("@FailedDiffs", job.FailedDiffs);
-            command.Parameters.AddWithValue("@SucceededDiffs", job.SucceededDiffs);
+            command.Parameters.AddWithValue("@TotalRequestsProcessed", job.TotalRequestsProcessed);
+            command.Parameters.AddWithValue("@DiffsFound", job.DiffsFound);
+            command.Parameters.AddWithValue("@ErrorMessage", (object?)job.ErrorMessage ?? DBNull.Value);
         }
     }
 }
