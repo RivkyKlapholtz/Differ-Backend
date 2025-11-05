@@ -3,12 +3,11 @@ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Jobs')
 BEGIN
     CREATE TABLE Jobs (
         Id INT PRIMARY KEY IDENTITY(1,1),
-        Name NVARCHAR(255) NOT NULL,
         StartTime DATETIME2 NOT NULL,
         EndTime DATETIME2 NULL,
         Status NVARCHAR(50) NOT NULL DEFAULT 'Running',
-        TotalRequestsProcessed INT NOT NULL DEFAULT 0,
-        DiffsFound INT NOT NULL DEFAULT 0,
+        FoundDiff BIT NOT NULL DEFAULT 0,
+        DiffId INT NULL,
         ErrorMessage NVARCHAR(MAX) NULL
     );
 END

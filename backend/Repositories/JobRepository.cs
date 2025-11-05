@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using DiffSpectrumView.Models;
 
 namespace DiffSpectrumView.Repositories
@@ -58,8 +62,8 @@ namespace DiffSpectrumView.Repositories
             await connection.OpenAsync();
             
             var command = new SqlCommand(@"
-                INSERT INTO Jobs (Name, StartTime, EndTime, Status, TotalRequestsProcessed, DiffsFound, ErrorMessage)
-                VALUES (@Name, @StartTime, @EndTime, @Status, @TotalRequestsProcessed, @DiffsFound, @ErrorMessage);
+                INSERT INTO Jobs (StartTime, EndTime, Status, FoundDiff, DiffId, ErrorMessage)
+                VALUES (@StartTime, @EndTime, @Status, @FoundDiff, @DiffId, @ErrorMessage);
                 SELECT CAST(SCOPE_IDENTITY() as int);", 
                 connection);
             
@@ -76,9 +80,9 @@ namespace DiffSpectrumView.Repositories
             
             var command = new SqlCommand(@"
                 UPDATE Jobs 
-                SET Name = @Name, StartTime = @StartTime, EndTime = @EndTime, 
-                    Status = @Status, TotalRequestsProcessed = @TotalRequestsProcessed, 
-                    DiffsFound = @DiffsFound, ErrorMessage = @ErrorMessage
+                SET StartTime = @StartTime, EndTime = @EndTime, 
+                    Status = @Status, FoundDiff = @FoundDiff, 
+                    DiffId = @DiffId, ErrorMessage = @ErrorMessage
                 WHERE Id = @Id", 
                 connection);
             
@@ -98,41 +102,57 @@ namespace DiffSpectrumView.Repositories
             return Convert.ToInt32(result);
         }
 
-        public async Task<int> GetTotalDiffsAsync()
+        public async Task<int> GetSuccessfulJobsAsync()
         {
             using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
             
-            var command = new SqlCommand("SELECT COUNT(*) FROM Diffs WHERE IsDeleted = 0", connection);
+            var command = new SqlCommand("SELECT COUNT(*) FROM Jobs WHERE Status = 'Success'", connection);
             var result = await command.ExecuteScalarAsync();
             return Convert.ToInt32(result);
         }
 
-        // Diffs are just differences found, not "failed" or "succeeded"
+        public async Task<int> GetFailedJobsAsync()
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            
+            var command = new SqlCommand("SELECT COUNT(*) FROM Jobs WHERE Status = 'Failed'", connection);
+            var result = await command.ExecuteScalarAsync();
+            return Convert.ToInt32(result);
+        }
+
+        public async Task<int> GetJobsWithDiffsAsync()
+        {
+            using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync();
+            
+            var command = new SqlCommand("SELECT COUNT(*) FROM Jobs WHERE FoundDiff = 1", connection);
+            var result = await command.ExecuteScalarAsync();
+            return Convert.ToInt32(result);
+        }
 
         private static Job MapToJob(SqlDataReader reader)
         {
             return new Job
             {
                 Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                Name = reader.GetString(reader.GetOrdinal("Name")),
                 StartTime = reader.GetDateTime(reader.GetOrdinal("StartTime")),
                 EndTime = reader.IsDBNull(reader.GetOrdinal("EndTime")) ? null : reader.GetDateTime(reader.GetOrdinal("EndTime")),
                 Status = reader.GetString(reader.GetOrdinal("Status")),
-                TotalRequestsProcessed = reader.GetInt32(reader.GetOrdinal("TotalRequestsProcessed")),
-                DiffsFound = reader.GetInt32(reader.GetOrdinal("DiffsFound")),
+                FoundDiff = reader.GetBoolean(reader.GetOrdinal("FoundDiff")),
+                DiffId = reader.IsDBNull(reader.GetOrdinal("DiffId")) ? null : reader.GetInt32(reader.GetOrdinal("DiffId")),
                 ErrorMessage = reader.IsDBNull(reader.GetOrdinal("ErrorMessage")) ? null : reader.GetString(reader.GetOrdinal("ErrorMessage"))
             };
         }
 
         private static void AddJobParameters(SqlCommand command, Job job)
         {
-            command.Parameters.AddWithValue("@Name", job.Name);
             command.Parameters.AddWithValue("@StartTime", job.StartTime);
             command.Parameters.AddWithValue("@EndTime", (object?)job.EndTime ?? DBNull.Value);
             command.Parameters.AddWithValue("@Status", job.Status);
-            command.Parameters.AddWithValue("@TotalRequestsProcessed", job.TotalRequestsProcessed);
-            command.Parameters.AddWithValue("@DiffsFound", job.DiffsFound);
+            command.Parameters.AddWithValue("@FoundDiff", job.FoundDiff);
+            command.Parameters.AddWithValue("@DiffId", (object?)job.DiffId ?? DBNull.Value);
             command.Parameters.AddWithValue("@ErrorMessage", (object?)job.ErrorMessage ?? DBNull.Value);
         }
     }

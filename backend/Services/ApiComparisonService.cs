@@ -35,6 +35,7 @@ namespace DiffSpectrumView.Services
         public async Task ProcessFlapiRequestAsync(DuplicationRequestDto request)
         {
             var jobStartTime = DateTime.UtcNow;
+            int? createdJobId = null;
             
             try
             {
@@ -97,53 +98,67 @@ namespace DiffSpectrumView.Services
                     diffsFound.Add(("JSON Response", normalizedSourceBody, normalizedTargetBody));
                 }
 
-                // Create job record (successful regardless of diffs found)
                 var job = new Job
                 {
                     Name = $"Flapi Comparison - {ExtractEndpoint(request.TestUrl)}",
                     StartTime = jobStartTime,
                     EndTime = DateTime.UtcNow,
-                    Status = "Completed",
+                    Status = "Success",
+                    FoundDiff = diffsFound.Count > 0,
+                    DiffId = null, // Will be updated if diff is created
+                    ErrorMessage = null,
                     TotalRequestsProcessed = 1,
                     DiffsFound = diffsFound.Count
                 };
-                var jobId = await _jobRepository.CreateAsync(job);
+                createdJobId = await _jobRepository.CreateAsync(job);
 
                 // Save diffs to database (only if diffs exist)
-                foreach (var (diffType, sourceValue, targetValue) in diffsFound)
+                if (diffsFound.Count > 0)
                 {
-                    var diff = new Diff
+                    foreach (var (diffType, sourceValue, targetValue) in diffsFound)
                     {
-                        JobId = jobId,
-                        SourceRequest = BuildSourceRequest(request.SourceUrl, request.Content),
-                        TargetRequest = BuildTargetRequest(request.TestUrl, request.Content),
-                        NormalizedSourceResponse = diffType == "JSON Response" ? sourceValue : normalizedSourceBody,
-                        NormalizedTargetResponse = diffType == "JSON Response" ? targetValue : normalizedTargetBody,
-                        SourceCompleteResponse = BuildCompleteResponse(sourceStatusCode, sourceBody),
-                        TargetCompleteResponse = BuildCompleteResponse(targetStatusCode, targetBody),
-                        DiffType = diffType,
-                        Endpoint = ExtractEndpoint(request.TestUrl),
-                        Method = method,
-                        Timestamp = DateTime.UtcNow,
-                        IsDeleted = false,
-                        IsChecked = false
-                    };
+                        var diff = new Diff
+                        {
+                            JobId = createdJobId.Value,
+                            SourceRequest = BuildSourceRequest(request.SourceUrl, request.Content),
+                            TargetRequest = BuildTargetRequest(request.TestUrl, request.Content),
+                            NormalizedSourceResponse = diffType == "JSON Response" ? sourceValue : normalizedSourceBody,
+                            NormalizedTargetResponse = diffType == "JSON Response" ? targetValue : normalizedTargetBody,
+                            SourceCompleteResponse = BuildCompleteResponse(sourceStatusCode, sourceBody),
+                            TargetCompleteResponse = BuildCompleteResponse(targetStatusCode, targetBody),
+                            DiffType = diffType,
+                            Endpoint = ExtractEndpoint(request.TestUrl),
+                            Method = method,
+                            Timestamp = DateTime.UtcNow,
+                            IsDeleted = false,
+                            IsChecked = false
+                        };
 
-                    await _diffRepository.CreateAsync(diff);
+                        var diffId = await _diffRepository.CreateAsync(diff);
+                        
+                        // Update job with first diff ID
+                        if (job.DiffId == null)
+                        {
+                            job.Id = createdJobId.Value;
+                            job.DiffId = diffId;
+                            await _jobRepository.UpdateAsync(job);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
             {
-                // Job failed - create failed job record
                 var job = new Job
                 {
                     Name = $"Flapi Comparison - {ExtractEndpoint(request.TestUrl)}",
                     StartTime = jobStartTime,
                     EndTime = DateTime.UtcNow,
                     Status = "Failed",
+                    FoundDiff = false,
+                    DiffId = null,
+                    ErrorMessage = ex.Message,
                     TotalRequestsProcessed = 0,
-                    DiffsFound = 0,
-                    ErrorMessage = ex.Message
+                    DiffsFound = 0
                 };
                 await _jobRepository.CreateAsync(job);
             }

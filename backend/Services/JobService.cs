@@ -6,10 +6,12 @@ namespace DiffSpectrumView.Services
     public class JobService : IJobService
     {
         private readonly IJobRepository _jobRepository;
+        private readonly IDiffRepository _diffRepository;
 
-        public JobService(IJobRepository jobRepository)
+        public JobService(IJobRepository jobRepository, IDiffRepository diffRepository)
         {
             _jobRepository = jobRepository;
+            _diffRepository = diffRepository;
         }
 
         public async Task<List<JobDto>> GetAllJobsAsync()
@@ -18,13 +20,12 @@ namespace DiffSpectrumView.Services
             return jobs.Select(j => new JobDto
             {
                 Id = j.Id,
-                Name = j.Name,
                 StartTime = j.StartTime,
                 EndTime = j.EndTime,
                 Status = j.Status,
-                TotalDiffs = j.TotalDiffs,
-                FailedDiffs = j.FailedDiffs,
-                SucceededDiffs = j.SucceededDiffs
+                FoundDiff = j.FoundDiff,
+                DiffId = j.DiffId,
+                ErrorMessage = j.ErrorMessage
             }).ToList();
         }
 
@@ -36,30 +37,30 @@ namespace DiffSpectrumView.Services
             return new JobDto
             {
                 Id = job.Id,
-                Name = job.Name,
                 StartTime = job.StartTime,
                 EndTime = job.EndTime,
                 Status = job.Status,
-                TotalDiffs = job.TotalDiffs,
-                FailedDiffs = job.FailedDiffs,
-                SucceededDiffs = job.SucceededDiffs
+                FoundDiff = job.FoundDiff,
+                DiffId = job.DiffId,
+                ErrorMessage = job.ErrorMessage
             };
         }
 
         public async Task<JobsSummaryDto> GetJobsSummaryAsync()
         {
             var totalJobs = await _jobRepository.GetTotalJobsAsync();
-            var totalDiffs = await _jobRepository.GetTotalDiffsAsync();
-            var failedDiffs = await _jobRepository.GetFailedDiffsAsync();
-            var succeededDiffs = await _jobRepository.GetSucceededDiffsAsync();
+            var successfulJobs = await _jobRepository.GetSuccessfulJobsAsync();
+            var failedJobs = await _jobRepository.GetFailedJobsAsync();
+            var jobsWithDiffs = await _jobRepository.GetJobsWithDiffsAsync();
             var recentJobs = await GetAllJobsAsync();
 
             return new JobsSummaryDto
             {
                 TotalJobs = totalJobs,
-                TotalDiffs = totalDiffs,
-                FailedDiffs = failedDiffs,
-                SucceededDiffs = succeededDiffs,
+                SuccessfulJobs = successfulJobs,
+                FailedJobs = failedJobs,
+                JobsWithDiffs = jobsWithDiffs,
+                JobsWithoutDiffs = successfulJobs - jobsWithDiffs,
                 RecentJobs = recentJobs.Take(5).ToList()
             };
         }

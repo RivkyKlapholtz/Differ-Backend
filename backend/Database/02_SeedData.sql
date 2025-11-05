@@ -1,12 +1,14 @@
 -- Seed sample jobs (Hangfire executions)
-INSERT INTO Jobs (Name, StartTime, EndTime, Status, TotalRequestsProcessed, DiffsFound)
+INSERT INTO Jobs (StartTime, EndTime, Status, FoundDiff, DiffId, ErrorMessage)
 VALUES 
-    ('API Comparison - User Service', DATEADD(HOUR, -2, GETUTCDATE()), DATEADD(HOUR, -2, GETUTCDATE()), 'Completed', 15, 3),
-    ('API Comparison - Order Service', DATEADD(HOUR, -1, GETUTCDATE()), DATEADD(HOUR, -1, GETUTCDATE()), 'Completed', 8, 2),
-    ('API Comparison - Product Service', DATEADD(MINUTE, -30, GETUTCDATE()), DATEADD(MINUTE, -30, GETUTCDATE()), 'Completed', 12, 0);
+    (DATEADD(HOUR, -2, GETUTCDATE()), DATEADD(HOUR, -2, GETUTCDATE()), 'Success', 1, NULL, NULL),
+    (DATEADD(HOUR, -1, GETUTCDATE()), DATEADD(HOUR, -1, GETUTCDATE()), 'Success', 1, NULL, NULL),
+    (DATEADD(MINUTE, -30, GETUTCDATE()), DATEADD(MINUTE, -30, GETUTCDATE()), 'Success', 0, NULL, NULL),
+    (DATEADD(MINUTE, -20, GETUTCDATE()), DATEADD(MINUTE, -20, GETUTCDATE()), 'Success', 0, NULL, NULL),
+    (DATEADD(MINUTE, -10, GETUTCDATE()), DATEADD(MINUTE, -10, GETUTCDATE()), 'Failed', 0, NULL, 'Connection timeout to target environment');
 
-DECLARE @JobId1 INT = (SELECT Id FROM Jobs WHERE Name = 'API Comparison - User Service');
-DECLARE @JobId2 INT = (SELECT Id FROM Jobs WHERE Name = 'API Comparison - Order Service');
+DECLARE @JobId1 INT = (SELECT TOP 1 Id FROM Jobs ORDER BY Id);
+DECLARE @JobId2 INT = (SELECT TOP 1 Id FROM Jobs WHERE Id > @JobId1 ORDER BY Id);
 
 -- Seed realistic diffs with complete request/response data
 INSERT INTO Diffs (
@@ -74,5 +76,8 @@ VALUES
      '{"statusCode":200,"headers":{"Content-Type":"application/json"},"body":{"transactionId":"txn_789","status":"success","amount":150.00}}',
      '{"statusCode":500,"headers":{"Content-Type":"application/json"},"body":{"error":"Internal server error","message":"Payment gateway timeout"}}',
      DATEADD(HOUR, -1, GETUTCDATE()), 0, 0);
+
+-- Update jobs with DiffIds after diffs are created
+UPDATE Jobs SET DiffId = (SELECT TOP 1 Id FROM Diffs WHERE JobId = Jobs.Id) WHERE FoundDiff = 1;
 
 GO

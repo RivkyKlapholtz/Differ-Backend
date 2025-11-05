@@ -9,8 +9,8 @@ namespace DiffSpectrumView.Repositories
         Task<int> CreateAsync(Job job);
         Task UpdateAsync(Job job);
         Task<int> GetTotalJobsAsync();
-        Task<int> GetTotalDiffsAsync();
-        Task<int> GetFailedDiffsAsync();
-        Task<int> GetSucceededDiffsAsync();
+        Task<int> GetSuccessfulJobsAsync();
+        Task<int> GetFailedJobsAsync();
+        Task<int> GetJobsWithDiffsAsync();
     }
 }
