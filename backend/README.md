@@ -119,7 +119,7 @@ dotnet run
 
 - **Diff** = הבדל בפועל בין התשובות
   - נשמר רק כשיש הבדל בין source ל-target
-  - יכול להיות Job מוצלח ללא Diffs (כשהתשובות זהות)
+  - יכול להיות Job מוצלח بدون Diffs (כשהתשובות זהות)
 
 ## 🎯 תכונות
 
@@ -164,3 +164,30 @@ docker run -p 5001:80 diff-spectrum-backend
 - תומך ב-Scalability
 - משווה רק Body ו-Status Code (לא Headers)
 - Job מוצלח לא מבטיח שאין Diffs
+
+## 🔧 פתרון בעיות נפוצות
+
+### שגיאת "target method was not found" ב-Hangfire
+
+אם אתה רואה שגיאה זו ב-Hangfire Dashboard:
+\`\`\`
+Cannot change to 'Enqueued': target method was not found
+System.InvalidOperationException: the type 'DiffSpectrumView.Services.IApiComparisonService' 
+does not contain a method with signature 'CompareApisAsync()'
+\`\`\`
+
+**הסיבה:** יש Jobs ישנים במסד הנתונים שמפנים למתודות שכבר לא קיימות.
+
+**פתרון:**
+
+1. הרץ את סקריפט הניקוי:
+\`\`\`bash
+sqlcmd -S localhost -d DiffSpectrumView -i Database/03_CleanupHangfireJobs.sql
+\`\`\`
+
+2. הפעל מחדש את האפליקציה:
+\`\`\`bash
+dotnet run
+\`\`\`
+
+הסקריפט מנקה את כל ה-Jobs הישנים מ-Hangfire ומאפס את המערכת.
