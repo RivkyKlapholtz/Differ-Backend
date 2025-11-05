@@ -2,6 +2,6 @@ namespace DiffSpectrumView.Services
 {
     public interface IApiComparisonService
     {
-        Task CompareApisAsync();
+        Task ProcessRequestAsync(string sourceRequest, string endpoint, string method);
     }
 }

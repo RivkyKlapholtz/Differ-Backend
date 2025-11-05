@@ -7,9 +7,9 @@ BEGIN
         StartTime DATETIME2 NOT NULL,
         EndTime DATETIME2 NULL,
         Status NVARCHAR(50) NOT NULL DEFAULT 'Running',
-        TotalDiffs INT NOT NULL DEFAULT 0,
-        FailedDiffs INT NOT NULL DEFAULT 0,
-        SucceededDiffs INT NOT NULL DEFAULT 0
+        TotalRequestsProcessed INT NOT NULL DEFAULT 0,
+        DiffsFound INT NOT NULL DEFAULT 0,
+        ErrorMessage NVARCHAR(MAX) NULL
     );
 END
 GO
@@ -20,13 +20,15 @@ BEGIN
     CREATE TABLE Diffs (
         Id INT PRIMARY KEY IDENTITY(1,1),
         JobId INT NOT NULL,
-        Category NVARCHAR(100) NOT NULL,
+        SourceRequest NVARCHAR(MAX) NOT NULL,
+        TargetRequest NVARCHAR(MAX) NOT NULL,
+        NormalizedSourceResponse NVARCHAR(MAX) NOT NULL,
+        NormalizedTargetResponse NVARCHAR(MAX) NOT NULL,
+        SourceCompleteResponse NVARCHAR(MAX) NOT NULL,
+        TargetCompleteResponse NVARCHAR(MAX) NOT NULL,
+        DiffType NVARCHAR(100) NOT NULL,
         Endpoint NVARCHAR(500) NOT NULL,
         Method NVARCHAR(10) NOT NULL,
-        ProductionResponse NVARCHAR(MAX) NOT NULL,
-        IntegrationResponse NVARCHAR(MAX) NOT NULL,
-        ProductionCurl NVARCHAR(MAX) NOT NULL,
-        IntegrationCurl NVARCHAR(MAX) NOT NULL,
         Timestamp DATETIME2 NOT NULL,
         IsDeleted BIT NOT NULL DEFAULT 0,
         IsChecked BIT NOT NULL DEFAULT 0,
@@ -39,4 +41,5 @@ GO
 CREATE INDEX IX_Diffs_JobId ON Diffs(JobId);
 CREATE INDEX IX_Diffs_IsDeleted ON Diffs(IsDeleted);
 CREATE INDEX IX_Diffs_Timestamp ON Diffs(Timestamp DESC);
+CREATE INDEX IX_Diffs_DiffType ON Diffs(DiffType);
 GO

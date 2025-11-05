@@ -7,8 +7,9 @@ namespace DiffSpectrumView.DTOs
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
         public string Status { get; set; } = string.Empty;
-        public int TotalDiffs { get; set; }
-        public int FailedDiffs { get; set; }
-        public int SucceededDiffs { get; set; }
+        
+        public int TotalRequestsProcessed { get; set; }
+        public int DiffsFound { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 }

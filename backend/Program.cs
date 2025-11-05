@@ -29,6 +29,7 @@ builder.Services.AddScoped<IJobRepository, JobRepository>();
 builder.Services.AddScoped<IDiffService, DiffService>();
 builder.Services.AddScoped<IJobService, JobService>();
 builder.Services.AddScoped<IApiComparisonService, ApiComparisonService>();
+builder.Services.AddScoped<IResponseNormalizationService, ResponseNormalizationService>();
 
 // Configure Hangfire
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -65,10 +66,6 @@ app.MapControllers();
 // Configure Hangfire Dashboard
 app.UseHangfireDashboard("/hangfire");
 
-// Schedule recurring job for API comparison
-RecurringJob.AddOrUpdate<IApiComparisonService>(
-    "compare-apis",
-    service => service.CompareApisAsync(),
-    Cron.Hourly);
+// Jobs will be created when Flapi sends requests to the API
 
 app.Run();
