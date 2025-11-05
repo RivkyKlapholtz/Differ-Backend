@@ -64,6 +64,11 @@ dotnet run
 
 ## 📚 API Endpoints
 
+### Comparison (Flapi Integration)
+- `POST /api/comparison` - קבלת בקשות מ-Flapi להשוואה אסינכרונית
+  - Body: `DuplicationRequest` (testUrl, sourceUrl, content, expectedResponse, options)
+  - מחזיר: `202 Accepted` (הבקשה נשלחת ל-Hangfire לעיבוד)
+
 ### Diffs
 - `GET /api/diffs` - קבלת כל ההבדלים
 - `GET /api/diffs/{id}` - קבלת הבדל לפי ID
@@ -80,12 +85,41 @@ dotnet run
 ### Hangfire Dashboard
 - `/hangfire` - ממשק ניהול Background Jobs
 
-## 🔄 Background Jobs
+## 🔄 איך זה עובד?
 
-המערכת מריצה אוטומטית השוואת APIs כל שעה באמצעות Hangfire:
-- משווה endpoints בין Production ל-Integration
-- יוצר Diffs עבור הבדלים
-- מעדכן סטטיסטיקות Jobs
+### תהליך השוואה (Flapi Integration)
+
+1. **Flapi שולח בקשה** ל-`POST /api/comparison` עם:
+   - `testUrl` - URL של הסביבה הנבדקת
+   - `sourceUrl` - URL של Flapi (מקור)
+   - `content` - תוכן הבקשה (JSON)
+   - `expectedResponse` - התשובה הצפויה מ-Flapi
+
+2. **Backend מקבל ומעבד**:
+   - מקבל את הבקשה ומחזיר `202 Accepted` מיד (fire and forget)
+   - שולח את הבקשה ל-Hangfire לעיבוד אסינכרוני
+   - Hangfire שולח את הבקשה לסביבה הנבדקת
+   - משווה בין התשובה מ-Flapi לתשובה מהסביבה הנבדקת
+
+3. **השוואה**:
+   - משווה **רק Body ו-Status Code** (לא Headers!)
+   - מנרמל את התשובות לפני השוואה
+   - מזהה הבדלים (JSON Response, Status Code)
+
+4. **שמירה ב-DB**:
+   - Job נשמר כ-"Completed" **בין אם יש הבדלים ובין אם לא**
+   - Diff נשמר **רק אם יש הבדלים בפועל**
+   - כל Diff כולל: SourceRequest, TargetRequest, NormalizedResponses, CompleteResponses
+
+### הבדל בין Job ל-Diff
+
+- **Job** = הרצת Hangfire (הצלחה/כישלון של התהליך)
+  - Job מצליח = הבקשה נשלחה, התקבלה תשובה, וההשוואה בוצעה
+  - Job נכשל = שגיאה בתהליך (timeout, connection error, וכו')
+
+- **Diff** = הבדל בפועל בין התשובות
+  - נשמר רק כשיש הבדל בין source ל-target
+  - יכול להיות Job מוצלח ללא Diffs (כשהתשובות זהות)
 
 ## 🎯 תכונות
 
@@ -95,6 +129,8 @@ dotnet run
 ✅ **Background Jobs** - עיבוד אסינכרוני עם Hangfire  
 ✅ **Swagger Documentation** - תיעוד API אוטומטי  
 ✅ **CORS Support** - תמיכה בקריאות מהקליינט  
+✅ **Flapi Integration** - קבלת בקשות מ-Flapi לעיבוד אסינכרוני  
+✅ **Smart Comparison** - השוואה חכמה של Body ו-Status Code בלבד  
 
 ## 🐳 Docker
 
@@ -126,3 +162,5 @@ docker run -p 5001:80 diff-spectrum-backend
 - עוקב אחר עקרונות SOLID
 - מוכן לסביבת Production
 - תומך ב-Scalability
+- משווה רק Body ו-Status Code (לא Headers)
+- Job מוצלח לא מבטיח שאין Diffs
